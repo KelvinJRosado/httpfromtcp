@@ -14,7 +14,6 @@ func main() {
 		fmt.Println("Error opening file:", err)
 		return
 	}
-	defer f.Close()
 
 	ch := getLinesChannel(f)
 
@@ -24,6 +23,7 @@ func main() {
 }
 
 func getLinesChannel(f io.ReadCloser) <-chan string {
+	defer f.Close()
 	messages := make(chan string)
 
 	go func() {
