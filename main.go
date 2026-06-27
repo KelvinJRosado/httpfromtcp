@@ -23,10 +23,10 @@ func main() {
 }
 
 func getLinesChannel(f io.ReadCloser) <-chan string {
-	defer f.Close()
 	messages := make(chan string)
 
 	go func() {
+		defer f.Close()
 		// Vars for keeping track of progress
 		curr := ""
 		for {
