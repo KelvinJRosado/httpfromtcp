@@ -48,17 +48,15 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 			buf := make([]byte, 8)
 
 			// Read the next 8 bytes and save to buffer
-			_, err := io.ReadAtLeast(f, buf, 1)
+			numBytes, err := io.ReadAtLeast(f, buf, 1)
 			isEOF := errors.Is(err, io.EOF) // Detect end of file
 			if err != nil && !isEOF {
 				fmt.Println("Unexpected error reading file:", err)
 				break
 			}
 
-			//tmp := ""
-
 			// Populate our string holding a full line
-			for _, r := range string(buf) {
+			for _, r := range string(buf[:numBytes]) {
 				if r == '\n' {
 					messages <- curr
 					curr = ""
@@ -72,6 +70,11 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 				break
 			}
 
+		}
+
+		// Flush remaining data
+		if curr != "" {
+			messages <- curr
 		}
 
 		close(messages)
