@@ -8,6 +8,7 @@ import (
 
 type Request struct {
 	RequestLine RequestLine
+	Status      int
 }
 
 type RequestLine struct {
@@ -25,11 +26,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		return &req, err
 	}
 
-	s := string(b)
-
-	lines := strings.Split(s, "\r\n")
-
-	rl, err := parseRequestLine(lines[0])
+	rl, _, err := parseRequestLine(b)
 	if err != nil {
 		return &req, err
 	}
@@ -39,11 +36,21 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	return &req, nil
 }
 
-func parseRequestLine(line string) (*RequestLine, error) {
+func parseRequestLine(data []byte) (*RequestLine, int, error) {
+	s := string(data)
+
+	lines := strings.Split(s, "\r\n")
+
+	if len(lines) < 2 {
+		return nil, 0, fmt.Errorf("no CRLF found in data")
+	}
+
+	line := lines[0]
+
 	parts := strings.Split(line, " ")
 
 	if len(parts) != 3 {
-		return nil, fmt.Errorf("request line muct have exactly 3 parts. Received: %v", len(parts))
+		return nil, len(line), fmt.Errorf("request line muct have exactly 3 parts. Received: %v", len(parts))
 	}
 
 	method := parts[0]
@@ -52,14 +59,14 @@ func parseRequestLine(line string) (*RequestLine, error) {
 
 	// Validate method
 	if method != strings.ToUpper(method) {
-		return nil, fmt.Errorf("method must be all caps. Received: %v", method)
+		return nil, len(line), fmt.Errorf("method must be all caps. Received: %v", method)
 	}
 
 	// Validate path
 
 	// Validate version
 	if version != "1.1" {
-		return nil, fmt.Errorf("only HTTP/1.1 is supported. Received: %v", version)
+		return nil, len(line), fmt.Errorf("only HTTP/1.1 is supported. Received: %v", version)
 	}
 
 	rl := RequestLine{
@@ -68,5 +75,5 @@ func parseRequestLine(line string) (*RequestLine, error) {
 		Method:        method,
 	}
 
-	return &rl, nil
+	return &rl, len(line), nil
 }
