@@ -8,7 +8,7 @@ import (
 
 type Request struct {
 	RequestLine RequestLine
-	Status      int
+	Status      int // 0=init, 1=done
 }
 
 type RequestLine struct {
@@ -20,7 +20,9 @@ type RequestLine struct {
 func RequestFromReader(reader io.Reader) (*Request, error) {
 	b, err := io.ReadAll(reader)
 
-	req := Request{}
+	req := Request{
+		Status: 0,
+	}
 
 	if err != nil {
 		return &req, err
@@ -42,7 +44,7 @@ func parseRequestLine(data []byte) (*RequestLine, int, error) {
 	lines := strings.Split(s, "\r\n")
 
 	if len(lines) < 2 {
-		return nil, 0, fmt.Errorf("no CRLF found in data")
+		return nil, 0, nil
 	}
 
 	line := lines[0]
@@ -76,4 +78,32 @@ func parseRequestLine(data []byte) (*RequestLine, int, error) {
 	}
 
 	return &rl, len(line), nil
+}
+
+func (r *Request) parse(data []byte) (int, error) {
+	var rl *RequestLine
+	var read int
+	var err error
+
+	switch r.Status {
+	case 0:
+		rl, read, err = parseRequestLine(data)
+	case 1:
+		return read, fmt.Errorf("trying to read done but request state is done")
+	default:
+		return read, fmt.Errorf("unknown request state")
+	}
+
+	if err != nil {
+		return read, err
+	}
+
+	if read == 0 {
+		return read, nil
+	}
+
+	r.RequestLine = *rl
+	r.Status = 1
+
+	return read, nil
 }
