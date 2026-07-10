@@ -17,7 +17,10 @@ type RequestLine struct {
 	Method        string
 }
 
-const bufferSize = 8 // Number of bytes to read at a time
+const (
+	bufferSize = 8 // Number of bytes to read at a time
+	crlf       = "\r\n"
+)
 
 // Pulls data from an IO reader until we can parse a request
 func RequestFromReader(reader io.Reader) (*Request, error) {
@@ -75,7 +78,7 @@ func parseRequestLine(data []byte) (*RequestLine, int, error) {
 	s := string(data)
 
 	// Split on CRLF to split by HTTP spec standards
-	lines := strings.Split(s, "\r\n")
+	lines := strings.Split(s, crlf)
 
 	// Check if not enough data to parse
 	if len(lines) < 2 {
@@ -117,7 +120,7 @@ func parseRequestLine(data []byte) (*RequestLine, int, error) {
 		Method:        method,
 	}
 
-	return &rl, len(line + "\r\n"), nil
+	return &rl, len(line + crlf), nil
 }
 
 // Parse the provided buffer to populate the request
