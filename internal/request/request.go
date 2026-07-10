@@ -17,23 +17,53 @@ type RequestLine struct {
 	Method        string
 }
 
-func RequestFromReader(reader io.Reader) (*Request, error) {
-	b, err := io.ReadAll(reader)
+const bufferSize = 8 // Number of bytes to read at a time
 
+func RequestFromReader(reader io.Reader) (*Request, error) {
+	readToIndex := 0 // How much we have read so far
 	req := Request{
 		Status: 0,
 	}
 
-	if err != nil {
-		return &req, err
-	}
+	buf := make([]byte, bufferSize)
 
-	rl, _, err := parseRequestLine(b)
-	if err != nil {
-		return &req, err
-	}
+	for req.Status != 1 {
+		// Grow buffer if needed
+		if readToIndex == cap(buf) {
+			newBuf := make([]byte, len(buf)*2)
+			copy(newBuf, buf)
+			buf = newBuf
+		}
 
-	req.RequestLine = *rl
+		// Read at least
+		read, err := io.ReadAtLeast(reader, buf[readToIndex:], 1)
+		if err == io.EOF {
+			req.Status = 1
+			break
+		}
+
+		readToIndex += read
+
+		if err != nil {
+			return &req, err
+		}
+
+		pd, err := req.parse(buf[:readToIndex])
+		if err != nil {
+			return &req, err
+		}
+
+		if pd == 0 {
+			continue
+		}
+
+		newBuf := make([]byte, len(buf))
+		copy(newBuf, buf[readToIndex:])
+		buf = newBuf
+
+		readToIndex -= pd
+
+	}
 
 	return &req, nil
 }
@@ -52,7 +82,7 @@ func parseRequestLine(data []byte) (*RequestLine, int, error) {
 	parts := strings.Split(line, " ")
 
 	if len(parts) != 3 {
-		return nil, len(line), fmt.Errorf("request line muct have exactly 3 parts. Received: %v", len(parts))
+		return nil, len(line), fmt.Errorf("request line must have exactly 3 parts. Received: %v, %v", len(parts), parts)
 	}
 
 	method := parts[0]
