@@ -1,10 +1,10 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"io"
 	"net"
+
+	"github.com/kelvinjrosado/httpfromtcp/internal/request"
 )
 
 func main() {
@@ -25,59 +25,17 @@ func main() {
 
 		fmt.Println("Accepted a new connection")
 
-		ch := getLinesChannel(conn)
-
-		for st := range ch {
-			fmt.Printf("%s\n", st)
+		req, err := request.RequestFromReader(conn)
+		if err != nil {
+			fmt.Println("Error parsing incoming request:", err)
+			return
 		}
+
+		fmt.Println("Request line:")
+		fmt.Printf("- Method: %v\n", req.RequestLine.Method)
+		fmt.Printf("- Target: %v\n", req.RequestLine.RequestTarget)
+		fmt.Printf("- Version: %v\n", req.RequestLine.HttpVersion)
 
 		fmt.Println("Connection has been closed")
 	}
-}
-
-func getLinesChannel(f io.ReadCloser) <-chan string {
-	messages := make(chan string)
-
-	go func() {
-		defer f.Close()
-		// Vars for keeping track of progress
-		curr := ""
-		for {
-
-			// Buffer to hold the next 8 bytes we read from file
-			buf := make([]byte, 8)
-
-			// Read the next 8 bytes and save to buffer
-			numBytes, err := io.ReadAtLeast(f, buf, 1)
-			isEOF := errors.Is(err, io.EOF) // Detect end of file
-			if err != nil && !isEOF {
-				fmt.Println("Unexpected error reading file:", err)
-				break
-			}
-
-			// Populate our string holding a full line
-			for _, r := range string(buf[:numBytes]) {
-				if r == '\n' {
-					messages <- curr
-					curr = ""
-				} else {
-					curr += string(r)
-				}
-			}
-
-			// Break from loop once we hit end of file
-			if isEOF {
-				break
-			}
-
-		}
-
-		// Flush remaining data
-		if curr != "" {
-			messages <- curr
-		}
-
-		close(messages)
-	}()
-	return messages
 }
