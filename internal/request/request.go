@@ -57,10 +57,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 			continue
 		}
 
-		newBuf := make([]byte, len(buf))
-		copy(newBuf, buf[pd:readToIndex])
-		buf = newBuf
-
+		copy(buf, buf[pd:readToIndex])
 		readToIndex -= pd
 
 	}
