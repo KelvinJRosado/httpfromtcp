@@ -58,7 +58,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		}
 
 		newBuf := make([]byte, len(buf))
-		copy(newBuf, buf[readToIndex:])
+		copy(newBuf, buf[pd:readToIndex])
 		buf = newBuf
 
 		readToIndex -= pd
@@ -107,7 +107,7 @@ func parseRequestLine(data []byte) (*RequestLine, int, error) {
 		Method:        method,
 	}
 
-	return &rl, len(line), nil
+	return &rl, len(line + "\r\n"), nil
 }
 
 func (r *Request) parse(data []byte) (int, error) {
