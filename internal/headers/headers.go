@@ -15,7 +15,7 @@ func NewHeaders() Headers {
 
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	// convert to string for utility
-	rawLine := string(data)
+	rawLine := strings.ToLower(string(data))
 
 	// If no CRLF present, we need more data
 	if !strings.Contains(rawLine, crlf) {
@@ -32,6 +32,11 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 
 	// Extract the name and value
 	fieldLine := strings.SplitN(line, ":", 2)
+
+	if len(fieldLine) != 2 {
+		return 0, false, fmt.Errorf("must have exactly 1 key and 1 value. Recieved: %v", fieldLine)
+	}
+
 	fieldName := fieldLine[0]
 
 	// Ensure name is valid
@@ -40,7 +45,7 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	}
 
 	// Remove optional whitespace
-	fieldValue := strings.Trim(fieldLine[1], " ")
+	fieldValue := strings.TrimSpace(fieldLine[1])
 
 	// Update map
 	h[fieldName] = fieldValue
