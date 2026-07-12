@@ -15,7 +15,7 @@ func NewHeaders() Headers {
 
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	// convert to string for utility
-	rawLine := strings.ToLower(string(data))
+	rawLine := string(data)
 
 	// If no CRLF present, we need more data
 	if !strings.Contains(rawLine, crlf) {
@@ -34,10 +34,10 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	fieldLine := strings.SplitN(line, ":", 2)
 
 	if len(fieldLine) != 2 {
-		return 0, false, fmt.Errorf("must have exactly 1 key and 1 value. Recieved: %v", fieldLine)
+		return 0, false, fmt.Errorf("missing field name and/or value. Received: %v", fieldLine)
 	}
 
-	fieldName := fieldLine[0]
+	fieldName := strings.ToLower(fieldLine[0])
 
 	// Ensure name is valid
 	if strings.HasPrefix(fieldName, " ") || strings.HasSuffix(fieldName, " ") {
