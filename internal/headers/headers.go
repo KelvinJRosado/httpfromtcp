@@ -24,7 +24,7 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 
 	// If CRLF is at start, we are finished
 	if strings.HasPrefix(rawLine, crlf) {
-		return 0, true, nil
+		return len(crlf), true, nil
 	}
 
 	// Only process 1st header (1 at a time)
@@ -40,8 +40,8 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	fieldName := strings.ToLower(fieldLine[0])
 
 	// Ensure name is valid
-	if strings.HasPrefix(fieldName, " ") || strings.HasSuffix(fieldName, " ") {
-		return 0, false, fmt.Errorf("header name cannot have spaces at start or end. Received: %v", fieldName)
+	if fieldName != strings.TrimSpace(fieldName) {
+		return 0, false, fmt.Errorf("header name cannot have whitespace at start or end. Received: %v", fieldName)
 	}
 
 	// Remove optional whitespace
