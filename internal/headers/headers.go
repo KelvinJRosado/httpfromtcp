@@ -55,7 +55,13 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	fieldValue := strings.TrimSpace(line[div+1:])
 
 	// Update map
-	h[fieldName] = fieldValue
+
+	val, found := h[fieldName]
+	if found {
+		h[fieldName] = val + "," + fieldValue
+	} else {
+		h[fieldName] = fieldValue
+	}
 
 	return (len(line) + len(crlf)), false, nil
 }

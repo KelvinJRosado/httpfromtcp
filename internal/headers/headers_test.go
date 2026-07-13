@@ -49,6 +49,26 @@ func TestHeadersParse(t *testing.T) {
 	assert.Equal(t, "localhost:42069", headers["host"])
 	assert.Equal(t, "Bar", headers["foo-val"])
 
+	// Test: Valid 2 headers with repeated headers
+	headers = NewHeaders()
+	data = []byte("FoO:Bar1\r\nfOo:Bar2\r\n\r\n")
+	n, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(t, 10, n)
+	assert.False(t, done)
+	// 2nd pass
+	n2, done, err = headers.Parse(data[n:])
+	require.NoError(t, err)
+	assert.Equal(t, 10, n2)
+	assert.False(t, done)
+	// 3rd pass
+	n3, done, err = headers.Parse(data[n+n2:])
+	require.NoError(t, err)
+	assert.Equal(t, 2, n3)
+	assert.True(t, done)
+	assert.Equal(t, "Bar1,Bar2", headers["foo"])
+
 	// Test: Valid done
 	headers = NewHeaders()
 	data = []byte("\r\n")
