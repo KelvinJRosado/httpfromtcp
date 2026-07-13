@@ -58,6 +58,15 @@ func TestHeadersParse(t *testing.T) {
 	assert.Equal(t, 2, n)
 	assert.True(t, done)
 
+	// Test: Missing CRLF
+	headers = NewHeaders()
+	data = []byte("foo")
+	n, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(t, 0, n)
+	assert.False(t, done)
+
 	// Test: Invalid spacing header
 	headers = NewHeaders()
 	data = []byte("       Host: localhost:42069\r\n\r\n")
