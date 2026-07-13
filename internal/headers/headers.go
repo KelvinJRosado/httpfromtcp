@@ -58,7 +58,7 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 
 	val, found := h[fieldName]
 	if found {
-		h[fieldName] = val + "," + fieldValue
+		h[fieldName] = val + ", " + fieldValue
 	} else {
 		h[fieldName] = fieldValue
 	}

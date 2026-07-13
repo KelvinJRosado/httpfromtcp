@@ -67,7 +67,7 @@ func TestHeadersParse(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, n3)
 	assert.True(t, done)
-	assert.Equal(t, "Bar1,Bar2", headers["foo"])
+	assert.Equal(t, "Bar1, Bar2", headers["foo"])
 
 	// Test: Valid done
 	headers = NewHeaders()
