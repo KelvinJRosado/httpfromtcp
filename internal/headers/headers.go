@@ -28,16 +28,16 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	}
 
 	// Only process 1st header (1 at a time)
-	line := strings.Split(rawLine, crlf)[0]
+	line, _, _ := strings.Cut(rawLine, crlf)
 
 	// Extract the name and value
-	fieldLine := strings.SplitN(line, ":", 2)
+	div := strings.Index(line, ":")
 
-	if len(fieldLine) != 2 {
-		return 0, false, fmt.Errorf("missing field name and/or value. Received: %v", fieldLine)
+	if div < 1 {
+		return 0, false, fmt.Errorf("no : inside field-line. Received: %v", line)
 	}
 
-	fieldName := strings.ToLower(fieldLine[0])
+	fieldName := strings.ToLower(line[:div])
 
 	// Ensure name is valid
 	if fieldName != strings.TrimSpace(fieldName) {
@@ -45,7 +45,7 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	}
 
 	// Remove optional whitespace
-	fieldValue := strings.TrimSpace(fieldLine[1])
+	fieldValue := strings.TrimSpace(line[div+1:])
 
 	// Update map
 	h[fieldName] = fieldValue
