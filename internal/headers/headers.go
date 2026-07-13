@@ -2,12 +2,15 @@ package headers
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
 type Headers map[string]string
 
 const crlf = "\r\n"
+
+var regexHeaderName = regexp.MustCompile("^[A-Za-z0-9!#$%&'*+\\-.^_`|~]+$")
 
 func NewHeaders() Headers {
 	return make(Headers)
@@ -42,6 +45,10 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	// Ensure name is valid
 	if fieldName != strings.TrimSpace(fieldName) {
 		return 0, false, fmt.Errorf("header name cannot have whitespace at start or end. Received: %v", fieldName)
+	}
+
+	if !regexHeaderName.MatchString(fieldName) {
+		return 0, false, fmt.Errorf("header name contains invalid characters. Received: %v", fieldName)
 	}
 
 	// Remove optional whitespace
