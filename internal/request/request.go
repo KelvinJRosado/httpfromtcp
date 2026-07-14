@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/kelvinjrosado/httpfromtcp/internal/headers"
 )
 
 type Request struct {
 	RequestLine RequestLine
-	Status      int // 0=init, 1=done
+	Status      int
+	Headers     headers.Headers
 }
 
 type RequestLine struct {
@@ -20,20 +23,26 @@ type RequestLine struct {
 const (
 	bufferSize = 8 // Number of bytes to read at a time
 	crlf       = "\r\n"
+	// Potential states our parsing can be in
+	statusInit                       = 0
+	statusDone                       = 2
+	statusRequestStateParsingHeaders = 1
 )
 
 // Pulls data from an IO reader until we can parse a request
 func RequestFromReader(reader io.Reader) (*Request, error) {
 	readToIndex := 0 // How much we have read so far
 	req := Request{
-		Status: 0,
+		Status: statusInit,
 	}
+
+	req.Headers = headers.NewHeaders()
 
 	// Buffer to store bytes being processed
 	buf := make([]byte, bufferSize)
 
 	// Keep reading bytes until we have enough
-	for req.Status != 1 {
+	for req.Status != statusDone {
 		// Grow buffer if needed
 		if readToIndex == cap(buf) {
 			newBuf := make([]byte, len(buf)*2)
@@ -44,7 +53,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		// Read at least 1 byte and add to buffer
 		numRead, err := io.ReadAtLeast(reader, buf[readToIndex:], 1)
 		if err == io.EOF {
-			req.Status = 1
+			req.Status = statusDone
 			break
 		}
 		readToIndex += numRead
@@ -125,32 +134,51 @@ func parseRequestLine(data []byte) (*RequestLine, int, error) {
 
 // Parse the provided buffer to populate the request
 func (r *Request) parse(data []byte) (int, error) {
-	// Init temp vars
-	var rl *RequestLine
-	var read int
-	var err error
+	totalBytesParsed := 0
 
-	// Only parse is request is in init status. Error otherwise
-	switch r.Status {
-	case 0:
-		rl, read, err = parseRequestLine(data)
-	case 1:
-		return read, fmt.Errorf("trying to read done but request state is done")
-	default:
-		return read, fmt.Errorf("unknown request state")
+	for r.Status != statusDone {
+		// Only parse is request is in init status. Error otherwise
+		switch r.Status {
+		case statusInit:
+			rl, read, err := parseRequestLine(data[totalBytesParsed:])
+			if err != nil {
+				return read, err
+			}
+
+			if read == 0 {
+				return read, nil
+			}
+
+			r.RequestLine = *rl
+			totalBytesParsed += read
+
+			r.Status = statusRequestStateParsingHeaders
+		case statusRequestStateParsingHeaders:
+
+			for {
+				read, done, err := r.Headers.Parse(data[totalBytesParsed:])
+				if err != nil {
+					return totalBytesParsed, err
+				}
+
+				totalBytesParsed += read
+
+				if done {
+					r.Status = statusDone
+					break
+				}
+
+				if read == 0 {
+					return totalBytesParsed, nil
+				}
+
+			}
+
+		case statusDone:
+			return totalBytesParsed, fmt.Errorf("trying to read done but request state is done")
+		default:
+			return totalBytesParsed, fmt.Errorf("unknown request state")
+		}
 	}
-
-	if err != nil {
-		return read, err
-	}
-
-	if read == 0 {
-		return read, nil
-	}
-
-	// If parsing was successful, update request state
-	r.RequestLine = *rl
-	r.Status = 1
-
-	return read, nil
+	return totalBytesParsed, nil
 }
