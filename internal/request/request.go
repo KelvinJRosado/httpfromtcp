@@ -3,6 +3,7 @@ package request
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/kelvinjrosado/httpfromtcp/internal/headers"
@@ -26,8 +27,9 @@ const (
 	crlf       = "\r\n"
 	// Potential states our parsing can be in
 	statusInit                       = 0
-	statusDone                       = 2
 	statusRequestStateParsingHeaders = 1
+	statusDone                       = 2
+	statusParsingBody                = 3
 )
 
 // Pulls data from an IO reader until we can parse a request
@@ -37,7 +39,9 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		Status: statusInit,
 	}
 
+	// Initialize our request data
 	req.Headers = headers.NewHeaders()
+	req.Body = []byte{}
 
 	// Buffer to store bytes being processed
 	buf := make([]byte, bufferSize)
@@ -53,10 +57,13 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 
 		// Read at least 1 byte and add to buffer
 		numRead, err := io.ReadAtLeast(reader, buf[readToIndex:], 1)
+
+		// We shouldn't hit EOF. Our status should end naturally before we hit EOF
 		if err == io.EOF {
-			req.Status = statusDone
-			break
+			return &req, io.ErrUnexpectedEOF
 		}
+
+		// Keep track of how much data we've read
 		readToIndex += numRead
 		if err != nil {
 			return &req, err
@@ -137,9 +144,11 @@ func parseRequestLine(data []byte) (*RequestLine, int, error) {
 func (r *Request) parse(data []byte) (int, error) {
 	totalBytesParsed := 0
 
+	// Keep parsing until done processing the data
 	for r.Status != statusDone {
 		// Only parse is request is in init status. Error otherwise
 		switch r.Status {
+		// Start with request line parsing
 		case statusInit:
 			rl, read, err := parseRequestLine(data[totalBytesParsed:])
 			if err != nil {
@@ -153,9 +162,10 @@ func (r *Request) parse(data []byte) (int, error) {
 			r.RequestLine = *rl
 			totalBytesParsed += read
 
+			// Parse headers after request line
 			r.Status = statusRequestStateParsingHeaders
 		case statusRequestStateParsingHeaders:
-
+			// Parse each header
 			for {
 				read, done, err := r.Headers.Parse(data[totalBytesParsed:])
 				if err != nil {
@@ -164,17 +174,53 @@ func (r *Request) parse(data []byte) (int, error) {
 
 				totalBytesParsed += read
 
+				// Move on to body parsing after headers
 				if done {
-					r.Status = statusDone
+					r.Status = statusParsingBody
 					break
 				}
 
+				// If not enough data, wait until next delivery
 				if read == 0 {
 					return totalBytesParsed, nil
 				}
 
 			}
 
+		case statusParsingBody:
+			// Make sure we only pull data based on reported length
+			lenStr, found := r.Headers.Get("content-length")
+			if !found {
+				r.Status = statusDone
+				break
+			}
+			length, err := strconv.Atoi(lenStr)
+			if err != nil {
+				return totalBytesParsed, err
+			}
+
+			// Check how many bytes left in the given data are for the body
+			bytesLeft := len(data) - totalBytesParsed
+
+			// Add the next body bytes to our current body
+			r.Body = append(r.Body, data[totalBytesParsed:]...)
+			totalBytesParsed += bytesLeft
+
+			// Error if too much data
+			if len(r.Body) > length {
+				return totalBytesParsed, fmt.Errorf("data passed was longer than stated content-length. Expected: %v. Received: %v", length, len(r.Body))
+			}
+
+			// Done if data matches
+			if len(r.Body) == length {
+				r.Status = statusDone
+				return totalBytesParsed, nil
+			}
+
+			// Of no more data to process, wait until next delivery
+			if bytesLeft == 0 {
+				return totalBytesParsed, nil
+			}
 		case statusDone:
 			return totalBytesParsed, fmt.Errorf("trying to read done but request state is done")
 		default:
