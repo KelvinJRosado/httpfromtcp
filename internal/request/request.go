@@ -12,6 +12,7 @@ type Request struct {
 	RequestLine RequestLine
 	Status      int
 	Headers     headers.Headers
+	Body        []byte
 }
 
 type RequestLine struct {
