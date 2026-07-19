@@ -1,10 +1,12 @@
-package httpserver
+package main
 
 import (
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/kelvinjrosado/httpfromtcp/internal/server"
 )
 
 const port = 42069
