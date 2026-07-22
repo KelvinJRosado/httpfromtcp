@@ -72,7 +72,7 @@ func (s *Server) listen() {
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
 
-	_ = response.WriteStatusLine(conn, 200)
+	_ = response.WriteStatusLine(conn, response.Status200)
 
 	hr := response.GetDefaultHeaders(0)
 	_ = response.WriteHeaders(conn, hr)
