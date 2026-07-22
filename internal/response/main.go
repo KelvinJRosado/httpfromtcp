@@ -19,16 +19,16 @@ const (
 func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
 	switch statusCode {
 	case Status200:
-		_, err := w.Write([]byte("HTTP/1.1 200 OK"))
+		_, err := w.Write([]byte("HTTP/1.1 200 OK\r\n"))
 		return err
 	case Status400:
-		_, err := w.Write([]byte("HTTP/1.1 400 Bad Request"))
+		_, err := w.Write([]byte("HTTP/1.1 400 Bad Request\r\n"))
 		return err
 	case Status500:
-		_, err := w.Write([]byte("HTTP/1.1 500 Internal Server Error"))
+		_, err := w.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n"))
 		return err
 	default:
-		_, err := w.Write([]byte("HTTP/1.1 500 "))
+		_, err := w.Write([]byte("HTTP/1.1 500 \r\n"))
 		return err
 	}
 }
@@ -45,12 +45,17 @@ func GetDefaultHeaders(contentLen int) headers.Headers {
 
 func WriteHeaders(w io.Writer, headers headers.Headers) error {
 	for k, v := range headers {
-		line := fmt.Sprintf("%v: %v", k, v)
+		line := fmt.Sprintf("%v: %v\r\n", k, v)
 
 		_, err := w.Write([]byte(line))
 		if err != nil {
 			return err
 		}
+	}
+
+	_, err := w.Write([]byte("\r\n"))
+	if err != nil {
+		return err
 	}
 
 	return nil
