@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 	"sync/atomic"
+
+	"github.com/kelvinjrosado/httpfromtcp/internal/response"
 )
 
 // Contains the state of the server
@@ -70,10 +72,8 @@ func (s *Server) listen() {
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
 
-	data := "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n\r\nHello World!\n"
+	_ = response.WriteStatusLine(conn, 200)
 
-	_, err := conn.Write([]byte(data))
-	if err != nil {
-		fmt.Printf("could not write response: %v\n", err)
-	}
+	hr := response.GetDefaultHeaders(0)
+	_ = response.WriteHeaders(conn, hr)
 }
