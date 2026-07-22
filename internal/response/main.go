@@ -1,7 +1,11 @@
 package response
 
 import (
+	"fmt"
 	"io"
+	"strconv"
+
+	"github.com/kelvinjrosado/httpfromtcp/internal/headers"
 )
 
 type StatusCode int
@@ -27,4 +31,27 @@ func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
 		_, err := w.Write([]byte("HTTP/1.1 500 "))
 		return err
 	}
+}
+
+func GetDefaultHeaders(contentLen int) headers.Headers {
+	hr := headers.NewHeaders()
+
+	hr["content-length"] = strconv.Itoa(contentLen)
+	hr["connection"] = "close"
+	hr["content-type"] = "text/plain"
+
+	return hr
+}
+
+func WriteHeaders(w io.Writer, headers headers.Headers) error {
+	for k, v := range headers {
+		line := fmt.Sprintf("%v: %v", k, v)
+
+		_, err := w.Write([]byte(line))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
