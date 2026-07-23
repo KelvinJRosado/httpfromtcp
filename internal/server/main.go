@@ -18,7 +18,7 @@ type Server struct {
 	handler  Handler
 }
 type HandlerError struct {
-	StatusCode int
+	StatusCode response.StatusCode
 	Message    string
 }
 
@@ -91,14 +91,23 @@ func (s *Server) handle(conn net.Conn) {
 	buf := bytes.Buffer{}
 
 	he := s.handler(&buf, req)
-	if he.Message != "" {
-		_ = he.WriteHandlerError(conn)
+	if he != nil {
+
+		_ = response.WriteStatusLine(conn, he.StatusCode)
+
+		messageBytes := []byte(he.Message)
+
+		hr := response.GetDefaultHeaders(len(messageBytes))
+		_ = response.WriteHeaders(conn, hr)
+
+		_ = response.WriteBody(conn, messageBytes)
+
 		return
 	}
 
 	_ = response.WriteStatusLine(conn, response.Status200)
 
-	hr := response.GetDefaultHeaders(0)
+	hr := response.GetDefaultHeaders(len(buf.Bytes()))
 	_ = response.WriteHeaders(conn, hr)
 
 	_ = response.WriteBody(conn, buf.Bytes())
