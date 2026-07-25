@@ -28,7 +28,7 @@ type Handler func(w io.Writer, req *request.Request) *HandlerError
 func Serve(port int, handler Handler) (*Server, error) {
 	lr, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		return &Server{}, err
+		return nil, err
 	}
 
 	cl := atomic.Bool{}
@@ -40,9 +40,7 @@ func Serve(port int, handler Handler) (*Server, error) {
 		handler:  handler,
 	}
 
-	go func() {
-		srv.listen()
-	}()
+	go srv.listen()
 
 	return &srv, nil
 }
@@ -72,9 +70,7 @@ func (s *Server) listen() {
 			continue
 		}
 
-		go func() {
-			s.handle(cn)
-		}()
+		go s.handle(cn)
 
 	}
 }
