@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -29,28 +27,27 @@ func main() {
 	log.Println("Server gracefully stopped")
 }
 
-func myHandler(w io.Writer, req *request.Request) *server.HandlerError {
-	if req.RequestLine.RequestTarget == "/yourproblem" {
-		return &server.HandlerError{
-			StatusCode: response.Status400,
-			Message:    "Your problem is not my problem",
-		}
+func myHandler(w *response.Writer, req *request.Request) {
+	statusCode := response.Status200
+	body := []byte("All good, frfr")
+
+	switch req.RequestLine.RequestTarget {
+	case "/yourproblem":
+		statusCode = response.Status400
+		body = []byte("Your problem is not my problem")
+	case "/myproblem":
+		statusCode = response.Status500
+		body = []byte("Woopsie, my bad")
 	}
 
-	if req.RequestLine.RequestTarget == "/myproblem" {
-		return &server.HandlerError{
-			StatusCode: response.Status500,
-			Message:    "Woopsie, my bad",
-		}
+	if err := w.WriteStatusLine(statusCode); err != nil {
+		return
 	}
 
-	_, err := w.Write([]byte("All good, frfr"))
-	if err != nil {
-		return &server.HandlerError{
-			StatusCode: response.Status500,
-			Message:    fmt.Sprintf("error writing from handler: %v", err),
-		}
+	h := response.GetDefaultHeaders(len(body))
+	if err := w.WriteHeaders(h); err != nil {
+		return
 	}
 
-	return nil
+	_, _ = w.WriteBody(body)
 }
