@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -29,22 +30,52 @@ func main() {
 
 func myHandler(w *response.Writer, req *request.Request) {
 	statusCode := response.Status200
-	body := []byte("All good, frfr")
+
+	body := []byte(`<html>
+  <head>
+    <title>200 OK</title>
+  </head>
+  <body>
+    <h1>Success!</h1>
+    <p>Your request was an absolute banger.</p>
+  </body>
+</html>`)
+
+	hs := response.GetDefaultHeaders(len(body))
+	hs["content-type"] = "text/html"
 
 	switch req.RequestLine.RequestTarget {
 	case "/yourproblem":
 		statusCode = response.Status400
-		body = []byte("Your problem is not my problem")
+		body = []byte(`<html>
+  <head>
+    <title>400 Bad Request</title>
+  </head>
+  <body>
+    <h1>Bad Request</h1>
+    <p>Your request honestly kinda sucked.</p>
+  </body>
+</html>`)
 	case "/myproblem":
 		statusCode = response.Status500
-		body = []byte("Woopsie, my bad")
+		body = []byte(`<html>
+  <head>
+    <title>500 Internal Server Error</title>
+  </head>
+  <body>
+    <h1>Internal Server Error</h1>
+    <p>Okay, you know what? This one is on me.</p>
+  </body>
+</html>`)
 	}
+
+	hs["content-length"] = fmt.Sprintf("%d", len(body))
 
 	if err := w.WriteStatusLine(statusCode); err != nil {
 		return
 	}
 
-	h := response.GetDefaultHeaders(len(body))
+	h := hs
 	if err := w.WriteHeaders(h); err != nil {
 		return
 	}
