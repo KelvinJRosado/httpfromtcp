@@ -72,3 +72,9 @@ func (h Headers) Get(key string) (string, bool) {
 	val, ok := h[lower]
 	return val, ok
 }
+
+func (h Headers) Set(key string, val string) {
+	lowerK := strings.ToLower(key)
+
+	h[lowerK] = val
+}
