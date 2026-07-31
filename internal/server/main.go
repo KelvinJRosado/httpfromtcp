@@ -1,9 +1,7 @@
 package server
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"net"
 	"sync/atomic"
 
@@ -17,12 +15,8 @@ type Server struct {
 	listener net.Listener // network listerner to pull requests
 	handler  Handler
 }
-type HandlerError struct {
-	StatusCode response.StatusCode
-	Message    string
-}
 
-type Handler func(w io.Writer, req *request.Request) *HandlerError
+type Handler func(w *response.Writer, req *request.Request)
 
 // Starts listening for requests inside a goroutine.
 func Serve(port int, handler Handler) (*Server, error) {
@@ -84,32 +78,6 @@ func (s *Server) handle(conn net.Conn) {
 		return
 	}
 
-	buf := bytes.Buffer{}
-
-	he := s.handler(&buf, req)
-	if he != nil {
-
-		_ = response.WriteStatusLine(conn, he.StatusCode)
-
-		messageBytes := []byte(he.Message)
-
-		hr := response.GetDefaultHeaders(len(messageBytes))
-		_ = response.WriteHeaders(conn, hr)
-
-		_ = response.WriteBody(conn, messageBytes)
-
-		return
-	}
-
-	_ = response.WriteStatusLine(conn, response.Status200)
-
-	hr := response.GetDefaultHeaders(len(buf.Bytes()))
-	_ = response.WriteHeaders(conn, hr)
-
-	_ = response.WriteBody(conn, buf.Bytes())
-}
-
-func (he *HandlerError) WriteHandlerError(w io.Writer) error {
-	_, err := fmt.Fprintf(w, "Failed with status %v: %v", he.StatusCode, he.Message)
-	return err
+	w := response.NewWriter(conn)
+	s.handler(w, req)
 }
