@@ -75,8 +75,7 @@ func myHandler(w *response.Writer, req *request.Request) {
 		return
 	}
 
-	h := hs
-	if err := w.WriteHeaders(h); err != nil {
+	if err := w.WriteHeaders(hs); err != nil {
 		return
 	}
 
