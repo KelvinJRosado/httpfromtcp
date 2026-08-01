@@ -24,6 +24,7 @@ const (
 	writerStatusWroteStatusLine
 	writerStatusWroteHeaders
 	writerStatusErrored
+	writerStatusChunksDone
 )
 
 const (
@@ -104,6 +105,53 @@ func (w *Writer) WriteBody(p []byte) (int, error) {
 	}
 
 	written, err := w.writer.Write(p)
+	if err != nil {
+		w.writerState = writerStatusErrored
+	}
+
+	return written, err
+}
+
+func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
+	if w.writerState != writerStatusWroteHeaders {
+		return 0, errors.New("body must be written last")
+	}
+
+	if len(p) == 0 {
+		return 0, errors.New("body cannot be empty")
+	}
+
+	hexLen := fmt.Sprintf("%X\r\n", len(p))
+
+	write1, err := w.writer.Write([]byte(hexLen))
+	if err != nil {
+		w.writerState = writerStatusErrored
+		return write1, err
+	}
+
+	write2, err := w.writer.Write(p)
+	if err != nil {
+		w.writerState = writerStatusErrored
+		return write1 + write2, err
+	}
+
+	write3, err := w.writer.Write([]byte("\r\n"))
+	if err != nil {
+		w.writerState = writerStatusErrored
+		return write1 + write2 + write3, err
+	}
+
+	return write1 + write2 + write3, err
+}
+
+func (w *Writer) WriteChunkedBodyDone() (int, error) {
+	if w.writerState != writerStatusWroteHeaders {
+		return 0, errors.New("body must be written last")
+	}
+
+	w.writerState = writerStatusChunksDone
+
+	written, err := w.writer.Write([]byte("0\r\n\r\n"))
 	if err != nil {
 		w.writerState = writerStatusErrored
 	}
