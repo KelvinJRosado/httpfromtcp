@@ -58,6 +58,9 @@ func myHandler(w *response.Writer, req *request.Request) {
 	hs["content-type"] = "text/html"
 
 	switch req.RequestLine.RequestTarget {
+	case "/video":
+		videoHandler(w, req)
+		return
 	case "/yourproblem":
 		statusCode = response.Status400
 		body = []byte(`<html>
@@ -148,4 +151,33 @@ func proxyHandler(w *response.Writer, req *request.Request) {
 	trailers.Set("X-Content-Length", fmt.Sprintf("%d", len(fullBody)))
 	trailers.Set("X-Content-SHA256", fmt.Sprintf("%x", sum))
 	_ = w.WriteTrailers(trailers)
+}
+
+func videoHandler(w *response.Writer, req *request.Request) {
+	{
+		statusCode := response.Status200
+
+		hs := response.GetDefaultHeaders(0)
+		hs["content-type"] = "video/mp4"
+
+		videoBytes, err := os.ReadFile("assets/vim.mp4")
+		if err != nil {
+			return
+		}
+
+		hs["content-length"] = fmt.Sprintf("%d", len(videoBytes))
+
+		if err := w.WriteStatusLine(statusCode); err != nil {
+			return
+		}
+
+		if err := w.WriteHeaders(hs); err != nil {
+			return
+		}
+
+		if _, err := w.WriteBody(videoBytes); err != nil {
+			return
+		}
+
+	}
 }
