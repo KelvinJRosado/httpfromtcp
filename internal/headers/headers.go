@@ -78,3 +78,9 @@ func (h Headers) Set(key string, val string) {
 
 	h[lowerK] = val
 }
+
+func (h Headers) UseChunked() {
+	delete(h, "content-length")
+
+	h.Set("transfer-encoding", "chunked")
+}

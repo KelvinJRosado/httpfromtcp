@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/kelvinjrosado/httpfromtcp/internal/request"
@@ -29,6 +32,14 @@ func main() {
 }
 
 func myHandler(w *response.Writer, req *request.Request) {
+	// Check for proxy path first
+	path, isProxy := strings.CutPrefix(req.RequestLine.RequestTarget, "/httpbin")
+	if isProxy {
+		req.RequestLine.RequestTarget = path
+		proxyHandler(w, req)
+		return
+	}
+
 	statusCode := response.Status200
 
 	body := []byte(`<html>
@@ -80,4 +91,47 @@ func myHandler(w *response.Writer, req *request.Request) {
 	}
 
 	_, _ = w.WriteBody(body)
+}
+
+func proxyHandler(w *response.Writer, req *request.Request) {
+	statusCode := response.Status200
+
+	hs := response.GetDefaultHeaders(0)
+	hs.UseChunked()
+	hs["content-type"] = "application/json"
+
+	if err := w.WriteStatusLine(statusCode); err != nil {
+		return
+	}
+
+	if err := w.WriteHeaders(hs); err != nil {
+		return
+	}
+
+	res, err := http.Get(fmt.Sprintf("https://httpbin.org%v", req.RequestLine.RequestTarget))
+	if err != nil {
+		return
+	}
+	defer res.Body.Close()
+
+	buf := make([]byte, 32)
+	for {
+		readBytes, errRead := res.Body.Read(buf)
+
+		if readBytes > 0 {
+			_, errWrite := w.WriteChunkedBody(buf[:readBytes])
+			if errWrite != nil {
+				return
+			}
+		}
+
+		if errRead != nil {
+			if errRead == io.EOF {
+				_, _ = w.WriteChunkedBodyDone()
+			}
+
+			return
+		}
+
+	}
 }
