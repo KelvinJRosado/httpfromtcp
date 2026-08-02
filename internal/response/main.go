@@ -25,6 +25,7 @@ const (
 	writerStatusWroteHeaders
 	writerStatusErrored
 	writerStatusChunksDone
+	writerStatusTrailersDone
 )
 
 const (
@@ -151,10 +152,35 @@ func (w *Writer) WriteChunkedBodyDone() (int, error) {
 
 	w.writerState = writerStatusChunksDone
 
-	written, err := w.writer.Write([]byte("0\r\n\r\n"))
+	written, err := w.writer.Write([]byte("0\r\n"))
 	if err != nil {
 		w.writerState = writerStatusErrored
 	}
 
 	return written, err
+}
+
+func (w *Writer) WriteTrailers(h headers.Headers) error {
+	if w.writerState != writerStatusChunksDone {
+		return errors.New("trailer must come after chunked body")
+	}
+
+	for k, v := range h {
+		line := fmt.Sprintf("%v: %v\r\n", k, v)
+
+		_, err := w.writer.Write([]byte(line))
+		if err != nil {
+			w.writerState = writerStatusErrored
+			return err
+		}
+	}
+
+	_, err := w.writer.Write([]byte("\r\n"))
+	if err != nil {
+		w.writerState = writerStatusErrored
+		return err
+	}
+
+	w.writerState = writerStatusTrailersDone
+	return nil
 }

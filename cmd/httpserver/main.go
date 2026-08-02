@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/kelvinjrosado/httpfromtcp/internal/headers"
 	"github.com/kelvinjrosado/httpfromtcp/internal/request"
 	"github.com/kelvinjrosado/httpfromtcp/internal/response"
 	"github.com/kelvinjrosado/httpfromtcp/internal/server"
@@ -99,6 +101,7 @@ func proxyHandler(w *response.Writer, req *request.Request) {
 	hs := response.GetDefaultHeaders(0)
 	hs.UseChunked()
 	hs["content-type"] = "application/json"
+	hs["trailer"] = "X-Content-SHA256, X-Content-Length"
 
 	if err := w.WriteStatusLine(statusCode); err != nil {
 		return
@@ -115,8 +118,13 @@ func proxyHandler(w *response.Writer, req *request.Request) {
 	defer res.Body.Close()
 
 	buf := make([]byte, 32)
+
+	// Keep track of current total body
+	fullBody := []byte{}
+
 	for {
 		readBytes, errRead := res.Body.Read(buf)
+		fullBody = append(fullBody, buf[:readBytes]...)
 
 		if readBytes > 0 {
 			_, errWrite := w.WriteChunkedBody(buf[:readBytes])
@@ -128,10 +136,16 @@ func proxyHandler(w *response.Writer, req *request.Request) {
 		if errRead != nil {
 			if errRead == io.EOF {
 				_, _ = w.WriteChunkedBodyDone()
+				break
+
 			}
 
 			return
 		}
-
 	}
+	trailers := headers.NewHeaders()
+	sum := sha256.Sum256(fullBody)
+	trailers.Set("X-Content-Length", fmt.Sprintf("%d", len(fullBody)))
+	trailers.Set("X-Content-SHA256", fmt.Sprintf("%x", sum))
+	_ = w.WriteTrailers(trailers)
 }
